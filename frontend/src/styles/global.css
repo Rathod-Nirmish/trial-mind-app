@@ -1,0 +1,57 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg text-text font-body antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+    font-weight: var(--font-heading-weight);
+  }
+  h1 { @apply text-3xl leading-tight; }
+  h2 { @apply text-2xl leading-tight; }
+  h3 { @apply text-xl leading-tight; }
+  h4 { @apply text-lg leading-snug; }
+  h5 { @apply text-base leading-snug; }
+  h6 { @apply text-xs uppercase tracking-wider text-neutral-600; }
+
+  a {
+    @apply text-accent-700;
+  }
+  a:hover {
+    @apply text-accent-800;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-accent-200);
+    color: var(--color-accent-900);
+  }
+
+  [disabled], .disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+}
+
+@layer utilities {
+  .text-muted {
+    color: var(--color-neutral-600);
+  }
+  .text-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+}
