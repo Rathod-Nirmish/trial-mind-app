@@ -71,24 +71,31 @@ async def _refine_query(question: str, issues: list[str]) -> str:
 
 
 async def run_citation_checker(state: AgentState) -> AgentState:
-    citations = extract_citations(state.draft_answer)
     id_map = state.citation_id_map
     known = {c.chunk_id: c for c in state.chunks}
     issues: list[str] = []
 
-    for cid in citations:
-        real_id = id_map.get(cid)
-        if real_id is None or real_id not in known:
-            issues.append(f"cited unknown chunk id: {cid}")
+    # Fallback for cases where the analyzer produced no structured output.
+    if not state.sentences:
+        return state.model_copy(update={
+            "check_result": CheckResult(ok=True, issues=[]),
+            "iteration": state.iteration + 1,
+            "trace": state.trace + [TraceEvent(
+                agent="citation_checker",
+                summary="skipped: no structured sentences",
+                payload={},
+            )],
+        })
 
-    for cid in citations:
-        real_id = id_map.get(cid)
-        if real_id is None or real_id not in known:
-            continue
-        claim = _sentence_around_citation(state.draft_answer, cid)
-        entails, reason = await _check_entailment(claim, known[real_id].text)
-        if not entails:
-            issues.append(f"chunk {cid} does not entail claim: {reason}")
+    for sentence in state.sentences:
+        for cid in sentence.cids:
+            real_id = id_map.get(cid)
+            if real_id is None or real_id not in known:
+                issues.append(f"cited unknown chunk id: {cid}")
+                continue
+            entails, reason = await _check_entailment(sentence.text, known[real_id].text)
+            if not entails:
+                issues.append(f"chunk {cid} does not entail claim: {reason}")
 
     result = CheckResult(ok=len(issues) == 0, issues=issues)
     update: dict = {

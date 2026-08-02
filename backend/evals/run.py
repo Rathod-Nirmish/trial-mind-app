@@ -9,10 +9,6 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 import yaml
-from trialmind.agents.citation_checker import (
-    _sentence_around_citation,
-    extract_citations,
-)
 from evals.arms import answer_with_checker, answer_without_checker
 from evals.judge import is_supported
 
@@ -26,38 +22,40 @@ QA_PATH = Path(__file__).resolve().parent / "golden_qa.yaml"
 OUT_DIR = REPO_ROOT / "docs" / "eval"
 
 
-async def _judge_answer(answer: str, id_map: dict[str, str], chunks: list) -> list[dict]:
-    """For each citation in `answer`, ask the judge whether the cited chunk supports the claim."""
+async def _judge_answer(sentences, id_map: dict[str, str], chunks: list) -> list[dict]:
+    """For each (sentence, cid) pair, ask the judge whether the cited chunk supports the sentence."""
     by_uuid = {c.chunk_id: c for c in chunks}
     records: list[dict] = []
-    for cid in extract_citations(answer):
-        real_id = id_map.get(cid)
-        chunk = by_uuid.get(real_id) if real_id else None
-        if chunk is None:
+    for sentence in sentences:
+        for cid in sentence.cids:
+            real_id = id_map.get(cid)
+            chunk = by_uuid.get(real_id) if real_id else None
+            if chunk is None:
+                records.append({
+                    "cid": cid,
+                    "sentence": sentence.text,
+                    "supported": False,
+                    "reason": "fabricated citation (cid not in id_map or chunks)",
+                    "chunk_id": real_id,
+                    "trial_id": None,
+                })
+                continue
+            supported, reason = await is_supported(sentence.text, chunk.text)
             records.append({
                 "cid": cid,
-                "supported": False,
-                "reason": "fabricated citation (cid not in id_map or chunks)",
-                "chunk_id": real_id,
-                "trial_id": None,
+                "sentence": sentence.text,
+                "supported": supported,
+                "reason": reason,
+                "chunk_id": chunk.chunk_id,
+                "trial_id": chunk.trial_id,
             })
-            continue
-        claim = _sentence_around_citation(answer, cid)
-        supported, reason = await is_supported(claim, chunk.text)
-        records.append({
-            "cid": cid,
-            "supported": supported,
-            "reason": reason,
-            "chunk_id": chunk.chunk_id,
-            "trial_id": chunk.trial_id,
-        })
     return records
 
 
 async def _run_one(q_id: str, question: str, arm_name: str, arm_fn) -> dict:
     print(f"  [{arm_name}] {q_id} …", flush=True)
-    answer, id_map, chunks = await arm_fn(question)
-    citation_records = await _judge_answer(answer, id_map, chunks)
+    answer, sentences, id_map, chunks = await arm_fn(question)
+    citation_records = await _judge_answer(sentences, id_map, chunks)
     unsupported = sum(1 for r in citation_records if not r["supported"])
     total = len(citation_records)
     return {

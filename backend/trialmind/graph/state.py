@@ -15,10 +15,16 @@ class CheckResult(BaseModel):
     issues: list[str] = Field(default_factory=list)
 
 
+class Sentence(BaseModel):
+    text: str
+    cids: list[str] = Field(default_factory=list)
+
+
 class AgentState(BaseModel):
     question: str
     chunks: list[SearchHit] = Field(default_factory=list)
     draft_answer: str = ""
+    sentences: list[Sentence] = Field(default_factory=list)
     check_result: CheckResult | None = None
     iteration: int = 0
     trace: list[TraceEvent] = Field(default_factory=list)
