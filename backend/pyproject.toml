@@ -21,6 +21,7 @@ dependencies = [
     "sse-starlette>=2.1",
     "mcp>=1.0",
     "pyyaml>=6.0",
+    "groq>=1.6.0",
 ]
 
 [project.optional-dependencies]

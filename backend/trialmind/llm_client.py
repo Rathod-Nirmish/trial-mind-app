@@ -8,7 +8,7 @@ from trialmind.config import get_settings
 
 # Global rate-limit-aware retry. Free-tier Gemini caps around 15 RPM per model,
 # so we retry 429s honoring the server's retry_delay and give up after 3 tries.
-_MAX_RETRIES = 3
+_MAX_RETRIES = 5
 _RETRY_DELAY_RE = re.compile(r"retry.{0,10}(\d+(?:\.\d+)?)\s*(?:s|second)", re.IGNORECASE)
 
 
@@ -57,6 +57,21 @@ async def _call_gemini(model: str, system: str | None, prompt: str, schema: dict
     return resp.text
 
 
+async def _call_groq(model: str, system: str | None, prompt: str, schema: dict | None) -> str:
+    from groq import AsyncGroq
+
+    client = AsyncGroq(api_key=get_settings().groq_api_key)
+    messages: list[dict] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    kwargs: dict = {"model": model, "messages": messages}
+    if schema:
+        kwargs["response_format"] = {"type": "json_object"}
+    resp = await client.chat.completions.create(**kwargs)
+    return resp.choices[0].message.content or ""
+
+
 async def _call_claude(model: str, system: str | None, prompt: str, schema: dict | None) -> str:
     from anthropic import AsyncAnthropic
 
@@ -86,6 +101,8 @@ async def complete(
         call = _call_gemini
     elif model.startswith("claude-"):
         call = _call_claude
+    elif model.startswith(("llama-", "mixtral-", "gemma-", "qwen-", "deepseek-")):
+        call = _call_groq
     else:
         raise ValueError(f"Unknown model: {model}")
 

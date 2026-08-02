@@ -1,10 +1,10 @@
 import json
 from trialmind.llm_client import complete
 
-# Note: spec said 2.5-pro, but free-tier quota for that model is 0 on this key.
-# 2.5-flash is a different tier than the analyzer's flash-lite, so shared-bias
-# risk remains low. Upgrade to 2.5-pro later if paid billing is enabled.
-JUDGE_MODEL = "gemini-2.5-flash"
+# Groq's Llama 3.3 70B: different vendor and architecture from the analyzer's
+# Gemini, so no shared-bias risk. Free tier is 6000 RPD / 30 RPM — comfortably
+# fits a 100-call eval.
+JUDGE_MODEL = "llama-3.3-70b-versatile"
 
 JUDGE_SYSTEM = (
     "You are a strict scientific verifier. Given a claim extracted from an "
@@ -25,6 +25,11 @@ async def is_supported(claim: str, passage: str) -> tuple[bool, str]:
     )
     try:
         parsed = json.loads(raw)
+        # Some models wrap the object in a list — unwrap.
+        if isinstance(parsed, list) and parsed:
+            parsed = parsed[0]
+        if not isinstance(parsed, dict):
+            return False, f"judge returned non-object: {type(parsed).__name__}"
         return bool(parsed.get("supported")), str(parsed.get("reason", ""))
     except json.JSONDecodeError:
         return False, "unparseable judge response"

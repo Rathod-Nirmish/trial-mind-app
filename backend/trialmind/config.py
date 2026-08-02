@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str
     anthropic_api_key: str = ""
+    groq_api_key: str = ""
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     database_url: str

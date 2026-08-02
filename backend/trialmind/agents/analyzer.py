@@ -35,8 +35,14 @@ async def run_analyzer(state: AgentState) -> AgentState:
                          json_schema={"type": "object"})
     try:
         parsed = json.loads(raw)
-        answer = parsed.get("answer", "").strip()
-        cited = parsed.get("cited_chunk_ids", [])
+        if isinstance(parsed, list) and parsed:
+            parsed = parsed[0]
+        if isinstance(parsed, dict):
+            answer = str(parsed.get("answer", "")).strip()
+            cited = parsed.get("cited_chunk_ids", []) or []
+        else:
+            answer = raw.strip()
+            cited = []
     except json.JSONDecodeError:
         answer = raw.strip()
         cited = []

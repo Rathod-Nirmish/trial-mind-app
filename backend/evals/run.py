@@ -142,10 +142,19 @@ async def main() -> None:
     print(f"Loaded {len(questions)} questions from {QA_PATH.name}", flush=True)
 
     results: list[dict] = []
-    for q in questions:
-        for arm_name, arm_fn in ARMS.items():
-            r = await _run_one(q["id"], q["question"], arm_name, arm_fn)
-            results.append(r)
+    try:
+        for q in questions:
+            for arm_name, arm_fn in ARMS.items():
+                r = await _run_one(q["id"], q["question"], arm_name, arm_fn)
+                results.append(r)
+    except Exception as e:  # noqa: BLE001 — always write partial results
+        import traceback
+        print(f"\n*** ABORTED: {type(e).__name__}: {str(e)[:200]}")
+        traceback.print_exc()
+        print(f"*** {len(results)} arm-runs completed before abort; writing partial report")
+
+    if not results:
+        raise RuntimeError("no results collected; nothing to write")
 
     summaries = {arm: _aggregate(results, arm) for arm in ARMS}
     json_path, md_path = _write_reports(results, summaries)
