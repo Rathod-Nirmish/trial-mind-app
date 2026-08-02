@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "trialmind": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "trialmind.mcp_server.server"],
+      "cwd": "E:/vue-projects/My Vue Projects/trial-mind-app/backend"
+    }
+  }
+}
