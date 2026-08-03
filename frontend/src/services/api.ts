@@ -1,50 +1,40 @@
-import type { FinalAnswer, TraceEvent } from "./types";
+/* API router — picks mock vs real per VITE_USE_MOCK_API.
+ * Both modules export the same function signatures (defined in types.ts). */
+import * as real from './api.real';
+import * as mock from './api.mock';
 
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
+const USE_MOCK = (import.meta.env.VITE_USE_MOCK_API ?? 'false').toString().toLowerCase() === 'true';
 
-type Handler = (kind: "trace" | "final", data: TraceEvent | FinalAnswer) => void;
-
-export async function askTrialMind(question: string, onEvent: Handler): Promise<void> {
-  const resp = await fetch(`${BASE}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ question }),
-  });
-  if (!resp.body) throw new Error("no response body");
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    // Handle both \n\n and \r\n\r\n separators
-    const normalized = () => buffer.replace(/\r\n/g, "\n");
-    let idx: number;
-    while ((idx = normalized().indexOf("\n\n")) !== -1) {
-      buffer = normalized();
-      const raw = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 2);
-
-      let eventName = "message";
-      let dataLine = "";
-      for (const line of raw.split("\n")) {
-        if (line.startsWith(":")) continue; // SSE comment/keepalive
-        if (line.startsWith("event:")) eventName = line.slice(6).trim();
-        else if (line.startsWith("data:")) dataLine += line.slice(5).trim();
-      }
-      if (!dataLine) continue;
-      try {
-        const parsed = JSON.parse(dataLine);
-        console.debug("[SSE]", eventName, parsed);
-        if (eventName === "trace") onEvent("trace", parsed as TraceEvent);
-        else if (eventName === "final") onEvent("final", parsed as FinalAnswer);
-      } catch (e) {
-        console.warn("[SSE] parse failed:", dataLine, e);
-      }
-    }
-  }
+if (import.meta.env.DEV) {
+  console.info(`[api] using ${USE_MOCK ? 'MOCK' : 'REAL'} backend`);
 }
+
+const impl = USE_MOCK ? mock : real;
+
+export const isMock = USE_MOCK;
+
+// Chat
+export const askTrialMind = impl.askTrialMind;
+
+// Corpus
+export const getCorpusStats  = impl.getCorpusStats;
+export const listTrials      = impl.listTrials;
+export const getTrial        = impl.getTrial;
+export const startIngestNct  = impl.startIngestNct;
+export const getIngestionJob = impl.getIngestionJob;
+
+// Explorations
+export const listExplorations = impl.listExplorations;
+export const getExploration   = impl.getExploration;
+export const saveExploration  = impl.saveExploration;
+export const patchExploration = impl.patchExploration;
+export const deleteExploration = impl.deleteExploration;
+
+// Runs
+export const getEvalAggregate = impl.getEvalAggregate;
+export const listEvalRuns     = impl.listEvalRuns;
+export const listAgentRuns    = impl.listAgentRuns;
+export const getAgentRun      = impl.getAgentRun;
+
+// Workbench
+export const workbenchRetrieve = impl.workbenchRetrieve;
