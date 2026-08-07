@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useToast } from '../composables/useToast';
 import { PageHeader, Btn, Icon, Field, TextInput, Seg } from '../components/industry';
 import Loader from '../components/industry/Loader.vue';
 import { listExplorations, patchExploration, deleteExploration } from '../services/api';
@@ -14,6 +15,15 @@ const sort = ref<'recent' | 'pinned' | 'az'>('recent');
 
 const openMenuId = ref<string | null>(null);
 const openId = ref<string | null>(null);
+const { push: toast } = useToast();
+
+function onEsc(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return;
+  if (openMenuId.value) { openMenuId.value = null; e.preventDefault(); return; }
+  if (openId.value)     { openId.value = null;     e.preventDefault(); return; }
+}
+onMounted(() => window.addEventListener('keydown', onEsc));
+onUnmounted(() => window.removeEventListener('keydown', onEsc));
 
 onMounted(async () => {
   loading.value = true;
@@ -49,17 +59,20 @@ const pinnedCount = computed(() => items.value.filter((e) => e.pinned).length);
 async function togglePin(e: Exploration) {
   e.pinned = !e.pinned;
   await patchExploration(e.id, { pinned: e.pinned });
+  toast(e.pinned ? `Pinned "${e.short_id}"` : `Unpinned "${e.short_id}"`, 'success');
 }
 
 async function removeExploration(e: Exploration) {
   openMenuId.value = null;
   items.value = items.value.filter((x) => x.id !== e.id);
   await deleteExploration(e.id);
+  toast(`Deleted "${e.short_id}"`, 'success');
 }
 
 function shareLink(e: Exploration) {
   navigator.clipboard?.writeText(`${location.origin}/explorations/${e.id}`);
   openMenuId.value = null;
+  toast('Link copied to clipboard', 'success');
 }
 
 function ago(iso: string) {

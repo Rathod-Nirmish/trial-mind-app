@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { PageHeader, Blueprint, Btn, Icon, Tag, Field, TextInput, Checkbox, Seg } from '../components/industry';
 import Loader from '../components/industry/Loader.vue';
 import { getCorpusStats, listTrials } from '../services/api';
@@ -58,6 +58,15 @@ function clearFilters() {
   Object.keys(status.value).forEach((k) => (status.value[k as keyof typeof status.value] = false));
   source.value = 'all';
 }
+
+function onEsc(e: KeyboardEvent) {
+  if (e.key === 'Escape' && selectedTrial.value) {
+    e.preventDefault();
+    selectedTrial.value = null;
+  }
+}
+onMounted(() => window.addEventListener('keydown', onEsc));
+onUnmounted(() => window.removeEventListener('keydown', onEsc));
 
 function daysAgoLabel(iso: string) {
   const d = (Date.now() - new Date(iso).getTime()) / 86400_000;

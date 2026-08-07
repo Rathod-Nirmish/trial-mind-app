@@ -2,15 +2,48 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from dataclasses import dataclass
+
 from trialmind.db import ChunkRow, upsert_chunks
+from trialmind.db_trials import upsert_trial
 from trialmind.ingestion.chunk import chunk_text
 from trialmind.ingestion.embed import embed_texts
 from trialmind.ingestion.fetch import fetch_trial
 from trialmind.ingestion.pdf import parse_pdf
 
 
-async def ingest_nct(nct_id: str) -> int:
+@dataclass
+class IngestResult:
+    nct_id: str
+    chunks: int
+    inserted: bool
+    updated: bool
+    unchanged: bool           # True if content_hash matched → skipped embedding
+    version: int
+
+
+async def ingest_nct(nct_id: str) -> IngestResult:
+    """Fetch, dedup by content-hash, chunk+embed if new/changed, upsert everything.
+    Idempotent: repeat calls for an unchanged trial return unchanged=True and skip
+    the expensive embedding step.
+    """
     doc = await fetch_trial(nct_id)
+    result = await upsert_trial(
+        nct_id=doc.nct_id,
+        title=doc.title,
+        phase=doc.phase,
+        status=doc.status,
+        condition=doc.condition,
+        source="nct",
+        content_hash=doc.content_hash,
+        raw=doc.raw,
+    )
+    if result.unchanged:
+        return IngestResult(
+            nct_id=doc.nct_id, chunks=0,
+            inserted=False, updated=False, unchanged=True, version=result.version,
+        )
+
     rows: list[ChunkRow] = []
     for section, text in doc.sections.items():
         chunks = chunk_text(text)
@@ -22,7 +55,10 @@ async def ingest_nct(nct_id: str) -> int:
                 ChunkRow(trial_id=doc.nct_id, section=section, text=c, embedding=e)
             )
     await upsert_chunks(rows)
-    return len(rows)
+    return IngestResult(
+        nct_id=doc.nct_id, chunks=len(rows),
+        inserted=result.inserted, updated=result.updated, unchanged=False, version=result.version,
+    )
 
 
 async def ingest_pdf(path: str, trial_id: str) -> int:
@@ -41,9 +77,10 @@ async def ingest_pdf(path: str, trial_id: str) -> int:
 
 async def _ingest_one(nct: str) -> int:
     try:
-        n = await ingest_nct(nct)
-        print(f"  {nct}: {n} chunks", flush=True)
-        return n
+        r = await ingest_nct(nct)
+        tag = "unchanged" if r.unchanged else ("updated" if r.updated else "new")
+        print(f"  {nct}: {r.chunks} chunks ({tag}, v{r.version})", flush=True)
+        return r.chunks
     except Exception as e:
         print(f"  {nct}: FAILED ({type(e).__name__}: {e})", flush=True)
         return 0

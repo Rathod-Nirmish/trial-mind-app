@@ -1,7 +1,9 @@
 import google.generativeai as genai
 from trialmind.config import get_settings
+from trialmind.llm_client import record_embedding_usage
 
 _MODEL = "models/gemini-embedding-001"
+_PRICING_MODEL = "text-embedding-004"  # closest entry in pricing.py
 _DIMS = 768
 
 
@@ -27,9 +29,12 @@ async def _embed_call(texts: list[str], task_type: str) -> list[list[float]]:
 async def embed_texts(texts: list[str], *, task_type: str = "retrieval_document") -> list[list[float]]:
     if not texts:
         return []
-    return await _embed_call(texts, task_type)
+    vecs = await _embed_call(texts, task_type)
+    await record_embedding_usage(_PRICING_MODEL, sum(len(t) for t in texts))
+    return vecs
 
 
 async def embed_query(text: str) -> list[float]:
     [v] = await _embed_call([text], "retrieval_query")
+    await record_embedding_usage(_PRICING_MODEL, len(text))
     return v

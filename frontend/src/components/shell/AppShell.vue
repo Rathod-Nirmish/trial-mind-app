@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router';
 import { isMock } from '../../services/api';
+import CommandPalette from './CommandPalette.vue';
+import ToastHost from './ToastHost.vue';
 
 const links = [
   { to: '/', label: 'Chat' },
@@ -29,6 +31,9 @@ const links = [
         </RouterLink>
       </div>
       <div class="nav-tail">
+        <span class="kbd-chip" title="Open command palette (⌘K)">
+          <kbd>⌘</kbd><kbd>K</kbd>
+        </span>
         <span v-if="isMock" class="mock-chip" title="Mock data — no real backend calls. Set VITE_USE_MOCK_API=false to hit the live API.">
           <span class="mock-dot" />
           MOCK
@@ -52,6 +57,9 @@ const links = [
         </transition>
       </RouterView>
     </main>
+
+    <CommandPalette />
+    <ToastHost />
 
     <footer class="shell-footer">
       <span>TrialMind is a portfolio demo — not a medical decision-support tool.</span>
@@ -108,6 +116,22 @@ const links = [
 .status-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: #4bb26a; box-shadow: 0 0 0 3px color-mix(in srgb, #4bb26a 24%, transparent);
+}
+
+.kbd-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 5px 8px;
+  background: #fff;
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  cursor: help;
+}
+.kbd-chip kbd {
+  display: inline-block;
+  padding: 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; font-weight: 600;
+  color: var(--color-neutral-700);
 }
 
 .mock-chip {

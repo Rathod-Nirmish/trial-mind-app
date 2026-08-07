@@ -53,15 +53,43 @@ export async function askTrialMind(question: string, onEvent: ChatHandler): Prom
   }
 }
 
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+    public detail: Record<string, unknown> = {},
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function j<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(`${BASE}${path}`, init);
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  if (!r.ok) {
+    let code = 'HTTP_ERROR';
+    let message = `${r.status} ${r.statusText}`;
+    let detail: Record<string, unknown> = {};
+    try {
+      const body = await r.json();
+      if (body?.error) {
+        code = body.error.code ?? code;
+        message = body.error.message ?? message;
+        detail = body.error.detail ?? {};
+      }
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(r.status, code, message, detail);
+  }
   return r.json() as Promise<T>;
 }
 
 // Corpus
 export const getCorpusStats = () => j<CorpusStats>('/corpus/stats');
-export const listTrials    = (q = '') => j<{ items: Trial[]; total: number }>(`/corpus/trials?${q}`);
+// Default limit intentionally high — Corpus.vue filters client-side over the full list.
+// Callers that want server-side paging can pass `q` = 'limit=25&offset=0&q=foo'.
+export const listTrials    = (q = 'limit=200') =>
+  j<{ items: Trial[]; total: number; limit: number; offset: number }>(`/corpus/trials?${q}`);
 export const getTrial      = (nct: string) => j<Trial>(`/corpus/trials/${nct}`);
 export const startIngestNct = (nct_ids: string[]) =>
   j<{ job_id: string }>('/corpus/ingest/nct', {
