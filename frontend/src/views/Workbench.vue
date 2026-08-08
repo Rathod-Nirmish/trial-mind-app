@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { useToast } from '../composables/useToast';
 import { PageHeader, Btn, Icon, Field, TextArea, Checkbox, Seg } from '../components/industry';
 import Loader from '../components/industry/Loader.vue';
@@ -7,6 +8,7 @@ import { workbenchRetrieve } from '../services/api';
 import type { WorkbenchChunk, WorkbenchSpec } from '../services/types';
 
 const question = ref('What were the eligibility criteria for the BNT162b2 vaccine trial?');
+const trialFilter = ref<string[]>([]);
 const phaseFilter = ref({ I: false, II: false, III: true, IV: false });
 const sectionFilter = ref<'all' | 'results' | 'adverse' | 'methods' | 'eligibility'>('all');
 const ranker = ref<'hybrid' | 'bm25' | 'vector'>('hybrid');
@@ -15,6 +17,7 @@ const iterations = ref(2);
 
 const chunks = ref<WorkbenchChunk[]>([]);
 const running = ref(false);
+const hasRun = ref(false);
 const focusedChunkId = ref<string | null>(null);
 const inspectorTab = ref<'chunk' | 'analyzer' | 'trace' | 'prompt'>('chunk');
 const elapsedMs = ref(0);
@@ -35,6 +38,7 @@ async function run() {
     filters: {
       phase: Object.entries(phaseFilter.value).filter(([, v]) => v).map(([k]) => k),
       section: sectionFilter.value === 'all' ? [] : [sectionFilter.value],
+      trial_id: trialFilter.value,
     },
     ranker: ranker.value,
     k: k.value,
@@ -48,6 +52,7 @@ async function run() {
     });
   } finally {
     running.value = false;
+    hasRun.value = true;
     elapsedMs.value = performance.now() - t0;
   }
 }
@@ -89,7 +94,18 @@ function onKey(e: KeyboardEvent) {
     run();
   }
 }
-onMounted(() => window.addEventListener('keydown', onKey));
+const route = useRoute();
+onMounted(() => {
+  window.addEventListener('keydown', onKey);
+  const nct = typeof route.query.nct === 'string' ? route.query.nct : null;
+  if (nct) {
+    trialFilter.value = [nct];
+    phaseFilter.value = { I: false, II: false, III: false, IV: false };
+    sectionFilter.value = 'all';
+    question.value = `Summarize trial ${nct}: eligibility, endpoints, and key results.`;
+    void run();
+  }
+});
 onUnmounted(() => window.removeEventListener('keydown', onKey));
 
 function buildPrompt(): string {
@@ -198,6 +214,19 @@ ${chunks.value.map((c, i) => `[c${i + 1}] ${c.trial_id} · ${c.section} (score $
         <div v-if="running && !chunks.length" class="wb-loading">
           <Loader variant="trace" tone="accent" />
           <span class="text-muted">Retrieving from corpus…</span>
+        </div>
+
+        <div v-else-if="!chunks.length && hasRun" class="wb-empty">
+          <Icon name="search-x" :size="22" />
+          <div class="wb-empty-title">No chunks matched</div>
+          <div class="wb-empty-body">
+            <template v-if="trialFilter.length">
+              No chunks are ingested for <span class="mono">{{ trialFilter.join(', ') }}</span>. Try clearing the trial filter or a different question.
+            </template>
+            <template v-else>
+              Retrieval returned nothing for this query and filter set. Loosen filters or rephrase the question.
+            </template>
+          </div>
         </div>
 
         <div v-else-if="!chunks.length" class="wb-empty">

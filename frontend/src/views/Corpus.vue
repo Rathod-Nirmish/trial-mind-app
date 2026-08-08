@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { PageHeader, Blueprint, Btn, Icon, Tag, Field, TextInput, Checkbox, Seg } from '../components/industry';
 import Loader from '../components/industry/Loader.vue';
 import { getCorpusStats, listTrials } from '../services/api';
@@ -67,6 +68,16 @@ function onEsc(e: KeyboardEvent) {
 }
 onMounted(() => window.addEventListener('keydown', onEsc));
 onUnmounted(() => window.removeEventListener('keydown', onEsc));
+
+const router = useRouter();
+
+function openOnClinicalTrials(nctId: string) {
+  window.open(`https://clinicaltrials.gov/study/${nctId}`, '_blank', 'noopener,noreferrer');
+}
+
+function openInWorkbench(nctId: string) {
+  router.push({ name: 'workbench', query: { nct: nctId } });
+}
 
 function daysAgoLabel(iso: string) {
   const d = (Date.now() - new Date(iso).getTime()) / 86400_000;
@@ -196,10 +207,11 @@ function daysAgoLabel(iso: string) {
               <tbody>
                 <tr v-if="!filtered.length" class="empty-row">
                   <td colspan="7">
-                    <div class="tbl-empty">
-                      <Icon name="search-x" :size="20" />
-                      <div>No trials match the current filters</div>
-                      <Btn variant="ghost" @click="clearFilters">
+                    <div class="empty-panel">
+                      <div class="empty-badge"><Icon name="search-x" :size="26" /></div>
+                      <div class="empty-title">No matching trials</div>
+                      <div class="empty-sub">Try removing a filter or broadening your search to see more results.</div>
+                      <Btn variant="secondary" @click="clearFilters">
                         <Icon name="x" :size="12" /> Clear filters
                       </Btn>
                     </div>
@@ -246,10 +258,11 @@ function daysAgoLabel(iso: string) {
                 <span class="num text-muted">{{ t.chunks }} chunks</span>
               </div>
             </button>
-            <div v-if="!filtered.length" class="tbl-empty grid-empty">
-              <Icon name="search-x" :size="20" />
-              <div>No trials match the current filters</div>
-              <Btn variant="ghost" @click="clearFilters">
+            <div v-if="!filtered.length" class="empty-panel grid-empty">
+              <div class="empty-badge"><Icon name="search-x" :size="26" /></div>
+              <div class="empty-title">No matching trials</div>
+              <div class="empty-sub">Try removing a filter or broadening your search to see more results.</div>
+              <Btn variant="secondary" @click="clearFilters">
                 <Icon name="x" :size="12" /> Clear filters
               </Btn>
             </div>
@@ -325,8 +338,8 @@ function daysAgoLabel(iso: string) {
           </div>
 
           <footer class="drawer-foot">
-            <Btn variant="secondary"><Icon name="external-link" :size="12" /> View on ClinicalTrials.gov</Btn>
-            <Btn variant="primary"><Icon name="sliders-horizontal" :size="12" /> Open in Workbench</Btn>
+            <Btn variant="secondary" @click="openOnClinicalTrials(selectedTrial.nct_id)"><Icon name="external-link" :size="12" /> View on ClinicalTrials.gov</Btn>
+            <Btn variant="primary" @click="openInWorkbench(selectedTrial.nct_id)"><Icon name="sliders-horizontal" :size="12" /> Open in Workbench</Btn>
           </footer>
         </aside>
       </div>
@@ -339,12 +352,14 @@ function daysAgoLabel(iso: string) {
   padding: 20px 30px 40px;
   max-width: 1400px; margin: 0 auto;
   display: flex; flex-direction: column; gap: 20px;
+  width: 100%;
 }
 
 .body {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 20px;
+  align-items: start;
 }
 @media (max-width: 900px) { .body { grid-template-columns: 1fr; } }
 
@@ -355,9 +370,10 @@ function daysAgoLabel(iso: string) {
   border-radius: 12px;
   padding: 16px;
   display: flex; flex-direction: column; gap: 16px;
-  align-self: flex-start;
   box-shadow: var(--shadow-sm);
   position: sticky; top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
 }
 .rail-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -518,12 +534,36 @@ function daysAgoLabel(iso: string) {
 }
 .chip-accent :deep(svg) { color: var(--color-accent-700); }
 
-.tbl-empty, .grid-empty {
-  padding: 60px 20px;
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  color: var(--color-neutral-500);
-  font-size: 13px;
+/* Empty state — a real panel, not a shrunken card. Shared across table
+ * (rendered inside a full-width <td colspan>) and grid (spans all columns). */
+.empty-panel {
+  min-height: 360px;
+  padding: 48px 24px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px;
+  color: var(--color-neutral-600);
+  font-family: var(--font-body);
+  text-align: center;
   white-space: normal;
+}
+.empty-badge {
+  width: 56px; height: 56px;
+  display: grid; place-items: center;
+  border-radius: 99px;
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-500);
+  margin-bottom: 4px;
+}
+.empty-title {
+  font-family: var(--font-heading); font-weight: 600;
+  font-size: 16px;
+  color: var(--color-text);
+}
+.empty-sub {
+  font-size: 12.5px;
+  color: var(--color-neutral-600);
+  max-width: 320px; line-height: 1.5;
+  margin-bottom: 6px;
 }
 
 /* ── Grid view ───────────────────────────────────────────── */
@@ -531,8 +571,15 @@ function daysAgoLabel(iso: string) {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px;
+  align-content: start;
 }
-.grid-empty { grid-column: 1 / -1; background: #fff; border: 1px solid var(--color-divider); border-radius: 12px; }
+.grid-empty {
+  grid-column: 1 / -1;
+  background: #fff;
+  border: 1px solid var(--color-divider);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
 
 .grid-card {
   display: flex; flex-direction: column; gap: 8px;

@@ -296,8 +296,12 @@ export async function workbenchRetrieve(
   spec: WorkbenchSpec,
   onChunk: (c: WorkbenchChunk) => void
 ): Promise<void> {
+  const trialPool = spec.filters.trial_id?.length
+    ? TRIALS.filter((t) => spec.filters.trial_id.includes(t.nct_id))
+    : TRIALS;
+  const pool = trialPool.length ? trialPool : TRIALS;
   const chunks: WorkbenchChunk[] = Array.from({ length: Math.min(spec.k, 8) }, (_, i) => {
-    const trial = TRIALS[i % TRIALS.length];
+    const trial = pool[i % pool.length];
     return {
       short_id: `c${i + 1}`,
       chunk_id: `ck-${1000 + i}`,

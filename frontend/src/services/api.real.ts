@@ -133,14 +133,22 @@ export async function workbenchRetrieve(
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  // SSE frames are separated by a blank line. Different servers emit CRLF or
+  // LF, so normalise to LF before splitting.
+  const takeFrame = (): string | null => {
+    const normalised = buffer.replace(/\r\n/g, '\n');
+    const idx = normalised.indexOf('\n\n');
+    if (idx === -1) return null;
+    const frame = normalised.slice(0, idx);
+    buffer = normalised.slice(idx + 2);
+    return frame;
+  };
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    let idx: number;
-    while ((idx = buffer.indexOf('\n\n')) !== -1) {
-      const raw = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 2);
+    let raw: string | null;
+    while ((raw = takeFrame()) !== null) {
       let eventName = 'message';
       let dataLine = '';
       for (const line of raw.split('\n')) {

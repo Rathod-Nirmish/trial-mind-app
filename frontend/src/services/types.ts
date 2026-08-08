@@ -137,7 +137,7 @@ export type WorkbenchChunk = {
 
 export type WorkbenchSpec = {
   question: string;
-  filters: { phase: string[]; section: string[] };
+  filters: { phase: string[]; section: string[]; trial_id: string[] };
   ranker: 'hybrid' | 'bm25' | 'vector';
   k: number;
   iterations: number;

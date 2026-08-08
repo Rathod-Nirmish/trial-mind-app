@@ -107,7 +107,7 @@ async def trials(
     source: list[str] = Query(default_factory=list),
     sort: SortKey = "ingested_at",
     order: SortOrder = "desc",
-    limit: int = Query(default=25, ge=1, le=100),
+    limit: int = Query(default=25, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> TrialListOut:
     items, total = await list_trials(

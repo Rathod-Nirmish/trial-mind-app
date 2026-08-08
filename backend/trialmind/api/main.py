@@ -15,6 +15,7 @@ from trialmind.api.explorations import router as explorations_router
 from trialmind.api.runs import router as runs_router
 from trialmind.api.sse import stream_answer
 from trialmind.api.usage import router as usage_router
+from trialmind.api.workbench import router as workbench_router
 from trialmind.budget import assert_within_budget
 
 DISCLAIMER = "TrialMind is a portfolio demo, not a medical decision-support tool."
@@ -31,6 +32,7 @@ app.include_router(corpus_router)
 app.include_router(explorations_router)
 app.include_router(runs_router)
 app.include_router(usage_router)
+app.include_router(workbench_router)
 
 
 class ChatBody(BaseModel):
