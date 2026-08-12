@@ -1,0 +1,34 @@
+# 10-question benchmark for TrialMind's Citation-Checker evaluation.
+# Corpus: 10 COVID-19 trials (see docs/specs/2026-07-30-trialmind-design.md).
+# Mix: 6 single-trial, 3 cross-trial, 1 adversarial.
+
+- id: q01
+  question: What were the eligibility criteria for the BNT162b2 vaccine trial?
+  notes: single-trial (NCT04368728), well-covered
+- id: q02
+  question: What were the primary endpoints of the Moderna mRNA-1273 Phase 3 trial?
+  notes: single-trial (NCT04470427), outcomes section
+- id: q03
+  question: What was the study design of the Johnson & Johnson JNJ-78436735 trial?
+  notes: single-trial (NCT04516746), summary/description
+- id: q04
+  question: What adverse events were reported in the AstraZeneca AZD1222 trial?
+  notes: single-trial (NCT04505722), adverse_events section
+- id: q05
+  question: What was the intervention arm in the ACTT-1 remdesivir trial?
+  notes: single-trial (NCT04280705), summary section
+- id: q06
+  question: What did the RECOVERY trial evaluate for hospitalized COVID-19 patients?
+  notes: single-trial (NCT04381936), summary section
+- id: q07
+  question: Compare the primary efficacy endpoints across the mRNA vaccine trials (BNT162b2 and mRNA-1273).
+  notes: cross-trial (NCT04368728 + NCT04470427)
+- id: q08
+  question: Which trials studied dexamethasone or corticosteroids for COVID-19 treatment?
+  notes: cross-trial, requires filtering across all trials
+- id: q09
+  question: How did the exclusion criteria differ between the Novavax NVX-CoV2373 and BNT162b2 vaccine trials?
+  notes: cross-trial (NCT04456595 + NCT04368728), eligibility comparison
+- id: q10
+  question: What were the results of the RECOVERY trial for hydroxychloroquine plus ivermectin in pediatric patients under 5 years old?
+  notes: adversarial — RECOVERY did not study this combination in this population; correct answer is "insufficient chunks"

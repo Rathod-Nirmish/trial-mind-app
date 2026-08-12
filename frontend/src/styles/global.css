@@ -1,57 +1,42 @@
 @import "./tokens.css";
+@import "./industry.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  html,
-  body,
-  #app {
-    height: 100%;
-  }
+  html { scrollbar-gutter: stable; }
+  html, body, #app { height: 100%; }
   body {
-    @apply bg-bg text-text font-body antialiased;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-heading;
+    font-family: var(--font-heading);
     font-weight: var(--font-heading-weight);
+    line-height: 1.12;
+    letter-spacing: 0.005em;
+    margin: 0;
   }
-  h1 { @apply text-3xl leading-tight; }
-  h2 { @apply text-2xl leading-tight; }
-  h3 { @apply text-xl leading-tight; }
-  h4 { @apply text-lg leading-snug; }
-  h5 { @apply text-base leading-snug; }
-  h6 { @apply text-xs uppercase tracking-wider text-neutral-600; }
+  h1 { font-size: 42px; }
+  h2 { font-size: 32px; }
+  h3 { font-size: 24px; }
+  h4 { font-size: 18px; }
+  h5 { font-size: 15px; }
+  h6 { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent-700); }
+  p { margin: 0; }
+  a { color: var(--color-accent-700); text-decoration: none; text-underline-offset: 3px; }
+  a:hover { color: var(--color-accent-800); text-decoration: underline; }
 
-  a {
-    @apply text-accent-700;
-  }
-  a:hover {
-    @apply text-accent-800;
-  }
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); color: var(--color-accent-900); }
 
-  :focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-  }
-
-  ::selection {
-    background: var(--color-accent-200);
-    color: var(--color-accent-900);
-  }
-
-  [disabled], .disabled {
-    opacity: 0.45;
-    pointer-events: none;
-  }
-}
-
-@layer utilities {
-  .text-muted {
-    color: var(--color-neutral-600);
-  }
-  .text-mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
+  [disabled], .disabled { opacity: 0.45; pointer-events: none; }
+  *, *::before, *::after { box-sizing: border-box; }
 }

@@ -1,0 +1,5 @@
+-- ⚠️ DEPRECATED — schema is now managed by Alembic.
+-- For a fresh DB:      cd backend && alembic upgrade head
+-- For an existing DB:  cd backend && alembic stamp 0001 && alembic upgrade head
+--
+-- This file is kept only for reference. Do not run.
