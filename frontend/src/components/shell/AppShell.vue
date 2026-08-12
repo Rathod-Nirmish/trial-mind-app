@@ -3,6 +3,7 @@ import { RouterLink, RouterView } from 'vue-router';
 import { isMock } from '../../services/api';
 import CommandPalette from './CommandPalette.vue';
 import ToastHost from './ToastHost.vue';
+import { Icon } from '../industry';
 
 const links = [
   { to: '/', label: 'Chat' },
@@ -17,7 +18,9 @@ const links = [
   <div class="shell">
     <nav class="nav shell-nav">
       <RouterLink to="/" class="nav-brand">
-        <span class="brand-mark" />
+        <span class="brand-mark">
+          <Icon name="brain" :size="22" />
+        </span>
         TrialMind
       </RouterLink>
       <div class="nav-links">
@@ -34,10 +37,10 @@ const links = [
         <span class="kbd-chip" title="Open command palette (⌘K)">
           <kbd>⌘</kbd><kbd>K</kbd>
         </span>
-        <span v-if="isMock" class="mock-chip" title="Mock data — no real backend calls. Set VITE_USE_MOCK_API=false to hit the live API.">
+        <!-- <span v-if="isMock" class="mock-chip" title="Mock data — no real backend calls. Set VITE_USE_MOCK_API=false to hit the live API.">
           <span class="mock-dot" />
           MOCK
-        </span>
+        </span> -->
         <span class="status-chip">
           <span class="status-dot" />
           <span class="status-label">gemini-2.5-pro</span>
@@ -61,10 +64,13 @@ const links = [
     <CommandPalette />
     <ToastHost />
 
+    <!-- Footer hidden to give the chat area more vertical space.
     <footer class="shell-footer">
       <span>TrialMind is a portfolio demo — not a medical decision-support tool.</span>
       <span class="footer-meta">v0.2 · <a href="https://github.com" target="_blank" rel="noopener">source</a></span>
     </footer>
+    -->
+
   </div>
 </template>
 
@@ -83,18 +89,21 @@ const links = [
   gap: 8px;
 }
 .nav-brand {
-  display: inline-flex; align-items: center; gap: 10px;
+  display: inline-flex; align-items: center; gap: 12px;
   padding: 12px 4px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: 0.01em;
+  color: var(--color-text);
 }
 .brand-mark {
-  width: 18px; height: 18px;
-  background: var(--color-accent);
-  position: relative;
-  border-radius: 3px;
-}
-.brand-mark::after {
-  content: ""; position: absolute; inset: 3px;
-  border: 1.5px solid #fff; border-radius: 2px;
+  width: 34px; height: 34px;
+  background: linear-gradient(160deg, #7ba7d9 0%, #3d6fa8 55%, #2a5590 100%);
+  border-radius: 9px;
+  display: inline-grid; place-items: center;
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 3px rgba(30, 60, 110, 0.28);
 }
 .nav-links {
   display: inline-flex; align-items: center; gap: 2px;

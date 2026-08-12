@@ -6,6 +6,7 @@
 @tailwind utilities;
 
 @layer base {
+  html { scrollbar-gutter: stable; }
   html, body, #app { height: 100%; }
   body {
     background-color: var(--color-bg);

@@ -12,7 +12,10 @@ const props = defineProps<{
   iterations?: { current: number; max: number };
   totalLatencyS?: number;
   verified?: boolean;
+  isPinned?: boolean;
+  hasNewerAnswer?: boolean;
 }>();
+defineEmits<{ (e: 'unpin'): void }>();
 
 // Fold multiple events per agent into a single step. Ordering is fixed.
 const steps = computed(() => {
@@ -59,8 +62,23 @@ const activeAgent = computed(() => {
 <template>
   <div class="tp">
     <div class="tp-head">
-      <span class="tp-title">AGENT TRACE</span>
-      <span v-if="runId" class="tp-run mono">{{ runId }}</span>
+      <div class="tp-head-row">
+        <span class="tp-title">AGENT TRACE</span>
+        <span v-if="runId" class="tp-run mono">{{ runId }}</span>
+      </div>
+      <div v-if="isPinned" class="tp-pins">
+        <button class="pin-chip" @click="$emit('unpin')" title="Return to latest answer">
+          <Icon name="arrow-left" :size="10" /> latest
+        </button>
+        <button
+          v-if="hasNewerAnswer"
+          class="pin-chip pin-chip-new"
+          @click="$emit('unpin')"
+          title="A newer answer is available"
+        >
+          new answer <Icon name="arrow-down" :size="10" />
+        </button>
+      </div>
     </div>
 
     <div v-if="!events.length && !live" class="tp-empty">
@@ -139,10 +157,38 @@ const activeAgent = computed(() => {
 }
 
 .tp-head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; flex-direction: column; gap: 6px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--color-divider);
   margin-bottom: 2px;
+}
+.tp-head-row {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.tp-pins {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 2px;
+}
+.pin-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px;
+  font-family: var(--font-body); font-weight: 600;
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-accent-800);
+  background: var(--color-accent-100);
+  border: 1px solid var(--color-accent-300);
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.pin-chip:hover {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+.pin-chip-new {
+  background: #fff;
+  border-color: var(--color-accent);
 }
 .tp-title {
   font-family: var(--font-body); font-weight: 600;

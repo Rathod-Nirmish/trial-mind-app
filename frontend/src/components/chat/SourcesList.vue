@@ -7,8 +7,19 @@ const props = defineProps<{
   citations: Citation[];
   hoveredCid?: string | null;
   retrievedTotal?: number; // may exceed citations.length (uncited chunks)
+  questionText?: string;
+  isPinned?: boolean;
+  hasNewerAnswer?: boolean;
 }>();
-defineEmits<{ (e: 'hover-citation', cid: string | null): void }>();
+defineEmits<{
+  (e: 'hover-citation', cid: string | null): void;
+  (e: 'unpin'): void;
+}>();
+
+function truncate(s: string, n = 40): string {
+  if (!s) return '';
+  return s.length > n ? `${s.slice(0, n - 1)}…` : s;
+}
 
 const shortIdOf = (idx: number) => `c${idx + 1}`;
 
@@ -33,13 +44,31 @@ watch(highlightedIdx, (i) => {
 <template>
   <div class="sources">
     <div class="sources-head">
-      <span class="sources-title">SOURCES</span>
-      <span class="sources-count mono">
-        {{ citations.length }}&nbsp;CITED
-        <template v-if="retrievedTotal && retrievedTotal > citations.length">
-          / {{ retrievedTotal }}&nbsp;RETRIEVED
-        </template>
-      </span>
+      <div class="sources-head-row">
+        <span class="sources-title">SOURCES</span>
+        <span class="sources-count mono">
+          {{ citations.length }}&nbsp;CITED
+          <template v-if="retrievedTotal && retrievedTotal > citations.length">
+            / {{ retrievedTotal }}&nbsp;RETRIEVED
+          </template>
+        </span>
+      </div>
+      <div v-if="questionText" class="sources-sub" :title="questionText">
+        for <span class="sources-q">"{{ truncate(questionText) }}"</span>
+      </div>
+      <div v-if="isPinned" class="sources-pins">
+        <button class="pin-chip" @click="$emit('unpin')" title="Return to latest answer">
+          <Icon name="arrow-left" :size="10" /> latest
+        </button>
+        <button
+          v-if="hasNewerAnswer"
+          class="pin-chip pin-chip-new"
+          @click="$emit('unpin')"
+          title="A newer answer is available"
+        >
+          new answer <Icon name="arrow-down" :size="10" />
+        </button>
+      </div>
     </div>
 
     <div v-if="!citations.length" class="sources-empty">
@@ -99,10 +128,49 @@ watch(highlightedIdx, (i) => {
 }
 
 .sources-head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; flex-direction: column; gap: 6px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--color-divider);
   margin-bottom: 2px;
+}
+.sources-head-row {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sources-sub {
+  font-size: 11px; color: var(--color-neutral-600);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sources-q { color: var(--color-neutral-800); font-style: italic; }
+
+.sources-pins {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 2px;
+}
+.pin-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px;
+  font-family: var(--font-body); font-weight: 600;
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-accent-800);
+  background: var(--color-accent-100);
+  border: 1px solid var(--color-accent-300);
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.pin-chip:hover {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+.pin-chip-new {
+  background: #fff;
+  border-color: var(--color-accent);
+  animation: chip-pulse 2s ease-in-out infinite;
+}
+@keyframes chip-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 40%, transparent); }
+  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 0%, transparent); }
 }
 .sources-title {
   font-family: var(--font-body); font-weight: 600;

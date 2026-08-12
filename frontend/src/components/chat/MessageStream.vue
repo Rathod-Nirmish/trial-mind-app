@@ -3,18 +3,32 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { marked } from 'marked';
 import { Icon } from '../industry';
 import Loader from '../industry/Loader.vue';
+import type { Citation, TraceEvent } from '../../services/types';
 
-type Msg = { role: 'user' | 'assistant'; text: string; at?: string };
+type Msg = {
+  role: 'user' | 'assistant';
+  text: string;
+  at?: string;
+  citations?: Citation[];
+  traceEvents?: TraceEvent[];
+  latencyS?: number;
+  runId?: string;
+  loading?: boolean;
+  error?: boolean;
+};
 
 const props = defineProps<{
   messages: Msg[];
   loading: boolean;
   hoveredCid?: string | null;
   verified?: boolean;
+  selectedIndex?: number | null;
 }>();
 const emit = defineEmits<{
   (e: 'hover-citation', cid: string | null): void;
   (e: 'action', kind: 'copy' | 'export' | 'rerun', msgIndex: number): void;
+  (e: 'select-message', index: number): void;
+  (e: 'select-citation', payload: { index: number; cid: string }): void;
 }>();
 
 marked.setOptions({ breaks: true, gfm: true });
@@ -43,13 +57,45 @@ function timeOf(m: Msg): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 }
 
+function findCardIndex(target: EventTarget | null): number | null {
+  let el = target as HTMLElement | null;
+  while (el) {
+    if (el.dataset && el.dataset.msgIndex != null) return Number(el.dataset.msgIndex);
+    el = el.parentElement;
+  }
+  return null;
+}
+
 function onMouseOver(e: MouseEvent) {
   const t = e.target as HTMLElement;
-  if (t?.dataset?.cid) emit('hover-citation', t.dataset.cid);
+  if (t?.dataset?.cid) {
+    const i = findCardIndex(t);
+    if (i != null && i === props.selectedIndex) emit('hover-citation', t.dataset.cid);
+  }
 }
 function onMouseOut(e: MouseEvent) {
   const t = e.target as HTMLElement;
   if (t?.dataset?.cid) emit('hover-citation', null);
+}
+function onClickBody(e: MouseEvent) {
+  const t = e.target as HTMLElement;
+  if (t?.dataset?.cid) {
+    const i = findCardIndex(t);
+    if (i != null) {
+      emit('select-citation', { index: i, cid: t.dataset.cid });
+      e.stopPropagation();
+    }
+  }
+}
+
+function onCardClick(i: number) {
+  emit('select-message', i);
+}
+function onCardKey(e: KeyboardEvent, i: number) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    emit('select-message', i);
+  }
 }
 
 const scrollEl = ref<HTMLElement | null>(null);
@@ -63,7 +109,7 @@ watch(() => props.messages.length, async () => {
   <div ref="scrollEl" class="stream" @mouseover="onMouseOver" @mouseout="onMouseOut">
     <div v-if="!messages.length" class="stream-empty">
       <div class="stream-empty-mark">
-        <Icon name="sparkles" :size="20" />
+        <Icon name="brain" :size="26" />
       </div>
       <div class="stream-empty-title">Ask a question about your corpus</div>
       <div class="stream-empty-body">
@@ -84,19 +130,47 @@ watch(() => props.messages.length, async () => {
       <!-- ASSISTANT TURN -->
       <div v-else class="turn turn-assist">
         <div class="avatar avatar-assist">
-          <Icon name="sparkles" :size="14" />
+          <Icon name="brain" :size="18" />
         </div>
-        <div class="assist-card">
+        <div
+          class="assist-card"
+          :class="{ 'is-selected': i === selectedIndex, 'is-live': m.loading, 'is-error': m.error }"
+          :data-msg-index="i"
+          role="button"
+          tabindex="0"
+          :aria-pressed="i === selectedIndex"
+          @click="onCardClick(i)"
+          @keydown="(e) => onCardKey(e, i)"
+        >
           <div class="assist-head">
             <span class="assist-name">TRIALMIND</span>
-            <span v-if="verified" class="verified-badge">
+            <span v-if="m.loading" class="live-badge">
+              <span class="live-dot" />
+              LIVE
+            </span>
+            <span v-else-if="i === selectedIndex && verified" class="verified-badge">
               <Icon name="check" :size="10" />
               VERIFIED
             </span>
             <span class="assist-time mono">{{ timeOf(m) }}</span>
           </div>
-          <div class="assist-body" :class="{ 'has-hover': hoveredCid }" v-html="m.html" />
-          <div class="assist-actions">
+
+          <div
+            v-if="m.loading && !m.text"
+            class="thinking"
+          >
+            <Loader variant="dots" :size="14" />
+            <span>Retrieving · analyzing · verifying citations…</span>
+          </div>
+          <div
+            v-else
+            class="assist-body"
+            :class="{ 'has-hover': hoveredCid && i === selectedIndex }"
+            v-html="m.html"
+            @click="onClickBody"
+          />
+
+          <div v-if="!m.loading" class="assist-actions" @click.stop>
             <button class="mini-btn" @click="$emit('action', 'copy', i)"><Icon name="copy" :size="12" /> Copy</button>
             <button class="mini-btn" @click="$emit('action', 'export', i)"><Icon name="download" :size="12" /> Export</button>
             <button class="mini-btn" @click="$emit('action', 'rerun', i)"><Icon name="refresh-cw" :size="12" /> Re-run</button>
@@ -104,26 +178,6 @@ watch(() => props.messages.length, async () => {
         </div>
       </div>
     </template>
-
-    <!-- LIVE ASSISTANT SHELL -->
-    <div v-if="loading" class="turn turn-assist">
-      <div class="avatar avatar-assist">
-        <Icon name="sparkles" :size="14" />
-      </div>
-      <div class="assist-card is-live">
-        <div class="assist-head">
-          <span class="assist-name">TRIALMIND</span>
-          <span class="live-badge">
-            <span class="live-dot" />
-            LIVE
-          </span>
-        </div>
-        <div class="thinking">
-          <Loader variant="dots" :size="14" />
-          <span>Retrieving · analyzing · verifying citations…</span>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -131,7 +185,7 @@ watch(() => props.messages.length, async () => {
 .stream {
   flex: 1; overflow-y: auto;
   min-height: 0;
-  padding: 26px 30px;
+  padding: 22px 14px;
   display: flex; flex-direction: column; gap: 22px;
   scroll-behavior: smooth;
 }
@@ -144,8 +198,10 @@ watch(() => props.messages.length, async () => {
 }
 .stream-empty-mark {
   width: 48px; height: 48px; display: grid; place-items: center;
-  border-radius: 12px; background: var(--color-accent);
+  border-radius: 12px;
+  background: linear-gradient(160deg, #7ba7d9 0%, #3d6fa8 55%, #2a5590 100%);
   color: #fff; margin-bottom: 6px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 6px rgba(30, 60, 110, 0.25);
 }
 .stream-empty-title {
   font-family: var(--font-heading); font-weight: 600;
@@ -159,8 +215,8 @@ watch(() => props.messages.length, async () => {
 }
 @keyframes turn-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 
-.turn-user  { align-self: flex-end;   max-width: 72%; }
-.turn-assist { align-self: flex-start; max-width: 88%; }
+.turn-user  { align-self: flex-end;   max-width: 96%; }
+.turn-assist { align-self: flex-start; max-width: 100%; width: 100%; }
 
 .avatar {
   width: 34px; height: 34px; flex: none;
@@ -168,9 +224,12 @@ watch(() => props.messages.length, async () => {
   display: inline-grid; place-items: center;
 }
 .avatar-user   { background: var(--color-neutral-200); color: var(--color-neutral-700); }
-.avatar-assist { background: var(--color-accent);      color: #fff; }
+.avatar-assist {
+  background: linear-gradient(160deg, #7ba7d9 0%, #3d6fa8 55%, #2a5590 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(30, 60, 110, 0.25);
+}
 
-/* Peel-corner bubbles */
 .user-bubble {
   background: var(--color-accent); color: #fff;
   padding: 12px 16px;
@@ -181,12 +240,24 @@ watch(() => props.messages.length, async () => {
 .assist-card {
   background: #fff;
   border: 1px solid var(--color-divider);
+  border-left: 3px solid transparent;
   border-radius: 3px 14px 14px 14px;
   padding: 18px 22px;
   display: flex; flex-direction: column; gap: 12px;
   box-shadow: var(--shadow-md);
   min-width: 0;
+  cursor: pointer;
+  transition: border-color 140ms, box-shadow 140ms;
+  outline: none;
 }
+.assist-card:focus-visible {
+  box-shadow: var(--shadow-md), 0 0 0 2px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+.assist-card.is-selected {
+  border-left-color: var(--color-accent);
+}
+.assist-card.is-error { border-left-color: #c94a4a; }
+
 .assist-head {
   display: flex; align-items: center; gap: 10px;
   padding-bottom: 10px;
@@ -258,7 +329,6 @@ watch(() => props.messages.length, async () => {
   padding: 4px 2px;
 }
 
-/* Assistant markdown */
 :deep(.assist-body p) { margin: 0 0 12px; }
 :deep(.assist-body p:last-child) { margin-bottom: 0; }
 :deep(.assist-body ul), :deep(.assist-body ol) { margin: 0.5em 0; padding-left: 1.4em; }
@@ -273,7 +343,6 @@ watch(() => props.messages.length, async () => {
   font-family: ui-monospace, monospace; font-size: 0.9em;
 }
 
-/* Inline citation pills — pill style, monospace, hover to solid accent */
 :deep(.cite) {
   display: inline-block;
   padding: 1px 7px; margin: 0 2px;

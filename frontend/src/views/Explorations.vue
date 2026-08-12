@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useToast } from '../composables/useToast';
 import { PageHeader, Btn, Icon, Field, TextInput, Seg } from '../components/industry';
-import Loader from '../components/industry/Loader.vue';
 import { listExplorations, patchExploration, deleteExploration } from '../services/api';
 import type { Exploration } from '../services/types';
 
@@ -17,13 +16,30 @@ const openMenuId = ref<string | null>(null);
 const openId = ref<string | null>(null);
 const { push: toast } = useToast();
 
+const stuck = ref(false);
+const stickySentinel = ref<HTMLElement | null>(null);
+let stickyObserver: IntersectionObserver | null = null;
+
 function onEsc(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
   if (openMenuId.value) { openMenuId.value = null; e.preventDefault(); return; }
   if (openId.value)     { openId.value = null;     e.preventDefault(); return; }
 }
-onMounted(() => window.addEventListener('keydown', onEsc));
-onUnmounted(() => window.removeEventListener('keydown', onEsc));
+onMounted(() => {
+  window.addEventListener('keydown', onEsc);
+  if (stickySentinel.value && 'IntersectionObserver' in window) {
+    stickyObserver = new IntersectionObserver(
+      ([entry]) => { stuck.value = !entry.isIntersecting; },
+      { threshold: 0 }
+    );
+    stickyObserver.observe(stickySentinel.value);
+  }
+});
+onUnmounted(() => {
+  window.removeEventListener('keydown', onEsc);
+  stickyObserver?.disconnect();
+  stickyObserver = null;
+});
 
 onMounted(async () => {
   loading.value = true;
@@ -111,38 +127,61 @@ function sparkPath(seed: string): string {
       </template>
     </PageHeader>
 
-    <div class="toolbar" style="--i: 1">
-      <div class="toolbar-search">
-        <Field label="Search">
-          <TextInput v-model="search" placeholder="Title, question, tag…" />
-        </Field>
-      </div>
-      <div class="toolbar-seg">
-        <Field label="Scope">
-          <Seg
-            v-model="scope"
-            :options="[
-              { value: 'all', label: 'All' },
-              { value: 'mine', label: 'Mine' },
-              { value: 'shared', label: 'Shared' },
-            ]"
-          />
-        </Field>
-        <Field label="Sort">
-          <Seg
-            v-model="sort"
-            :options="[
-              { value: 'recent', label: 'Recent' },
-              { value: 'pinned', label: 'Pinned' },
-              { value: 'az', label: 'A–Z' },
-            ]"
-          />
-        </Field>
+    <div ref="stickySentinel" class="sticky-sentinel" aria-hidden="true" />
+    <div class="toolbar-sticky" :class="{ 'is-stuck': stuck }" style="--i: 1">
+      <div class="toolbar">
+        <div class="toolbar-search">
+          <Field label="Search">
+            <TextInput v-model="search" placeholder="Title, question, tag…" />
+          </Field>
+        </div>
+        <div class="toolbar-seg">
+          <Field label="Scope">
+            <Seg
+              v-model="scope"
+              :options="[
+                { value: 'all', label: 'All' },
+                { value: 'mine', label: 'Mine' },
+                { value: 'shared', label: 'Shared' },
+              ]"
+            />
+          </Field>
+          <Field label="Sort">
+            <Seg
+              v-model="sort"
+              :options="[
+                { value: 'recent', label: 'Recent' },
+                { value: 'pinned', label: 'Pinned' },
+                { value: 'az', label: 'A–Z' },
+              ]"
+            />
+          </Field>
+        </div>
       </div>
     </div>
 
-    <div v-if="loading" class="loading" style="--i: 2">
-      <Loader variant="spinner" :size="20" label="Loading explorations…" />
+    <div v-if="loading" class="grid" style="--i: 2" aria-busy="true" aria-label="Loading explorations">
+      <div v-for="n in 6" :key="n" class="ex-card skeleton-card">
+        <header class="sk-head">
+          <span class="sk-bar sk-kicker" />
+          <span class="sk-actions">
+            <span class="sk-dot" />
+            <span class="sk-dot" />
+          </span>
+        </header>
+        <span class="sk-bar sk-title-1" />
+        <span class="sk-bar sk-title-2" />
+        <div class="sk-body">
+          <span class="sk-bar sk-line" />
+          <span class="sk-bar sk-line" />
+          <span class="sk-bar sk-line sk-line-short" />
+        </div>
+        <footer class="sk-foot">
+          <span class="sk-bar sk-meta" />
+          <span class="sk-bar sk-meta" />
+          <span class="sk-bar sk-spark" />
+        </footer>
+      </div>
     </div>
 
     <div v-else-if="!filtered.length" class="empty" style="--i: 2">
@@ -178,7 +217,7 @@ function sparkPath(seed: string): string {
               :aria-label="e.pinned ? 'Unpin' : 'Pin'"
               @click.stop="togglePin(e)"
             >
-              <Icon :name="e.pinned ? 'pin' : 'pin'" :size="13" />
+              <Icon :name="e.pinned ? 'pin' : 'pin-off'" :size="13" />
             </button>
             <div class="ex-menu-wrap" @click.stop>
               <button
@@ -330,8 +369,22 @@ function sparkPath(seed: string): string {
   padding: 20px 30px 40px;
   max-width: 1400px; margin: 0 auto;
   display: flex; flex-direction: column; gap: 20px;
+  min-height: calc(100vh - 60px);
 }
 
+.sticky-sentinel {
+  height: 1px; margin-bottom: -1px;
+  pointer-events: none;
+}
+.toolbar-sticky {
+  position: sticky; top: 0; z-index: 20;
+  padding: 8px 0;
+  background: var(--color-bg, #f2f2f3);
+  transition: box-shadow 160ms ease, background 160ms ease;
+}
+.toolbar-sticky.is-stuck {
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-neutral-900) 8%, transparent);
+}
 .toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -368,6 +421,7 @@ function sparkPath(seed: string): string {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
+  min-height: 480px;
 }
 
 .ex-card {
@@ -608,4 +662,39 @@ function sparkPath(seed: string): string {
 .drawer-enter-active .drawer, .drawer-leave-active .drawer { transition: transform 240ms cubic-bezier(.32,.72,.33,1); }
 .drawer-enter-from, .drawer-leave-to { opacity: 0; }
 .drawer-enter-from .drawer, .drawer-leave-to .drawer { transform: translateX(100%); }
+
+/* ── Skeleton loading state ─────────────────────────────── */
+.skeleton-card {
+  cursor: default;
+  animation: none;
+  gap: 12px;
+}
+.skeleton-card:hover { transform: none; border-color: var(--color-divider); box-shadow: var(--shadow-sm); }
+.sk-head { display: flex; align-items: center; justify-content: space-between; }
+.sk-actions { display: inline-flex; gap: 6px; }
+.sk-dot { width: 22px; height: 22px; border-radius: 6px; background: #eef0f2; display: inline-block; }
+.sk-body { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sk-foot { display: flex; align-items: center; gap: 10px; padding-top: 10px; border-top: 1px dashed var(--color-divider); }
+.sk-bar {
+  display: block;
+  height: 10px; border-radius: 4px;
+  background: linear-gradient(90deg, #eef0f2 0%, #f6f7f8 50%, #eef0f2 100%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.4s linear infinite;
+}
+.sk-kicker { width: 88px; height: 10px; }
+.sk-title-1 { width: 92%; height: 14px; }
+.sk-title-2 { width: 60%; height: 14px; }
+.sk-line { width: 100%; height: 9px; }
+.sk-line-short { width: 78%; }
+.sk-meta { width: 60px; height: 10px; }
+.sk-spark { margin-left: auto; width: 56px; height: 18px; }
+@keyframes sk-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk-bar { animation: none; background: #eef0f2; }
+  .toolbar-sticky { transition: none; }
+}
 </style>
